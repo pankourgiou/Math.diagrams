@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Three Curious Pictures from Mathematics</title>
+<style>
+:root{--bg:#eef1f4;--ink:#16213a;--mute:#5b667d;--card:#fafbfc;--line:#c9d1dd;--a:#1b4fd8;--b:#d6336c;}
+@media (prefers-color-scheme:dark){:root{--bg:#0f1524;--ink:#e6eaf3;--mute:#98a3bb;--card:#162036;--line:#2b3a58;--a:#6f9bff;--b:#ff7aa8;}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.6 "Iowan Old Style",Palatino,"Palatino Linotype",Georgia,serif;
+background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);background-size:32px 32px;background-attachment:fixed}
+main{max-width:920px;margin:0 auto;padding:48px 20px 80px}
+h1{font-size:clamp(2rem,5vw,3.2rem);line-height:1.1;margin:0 0 8px;font-weight:600;letter-spacing:-.01em}
+.lede{color:var(--mute);max-width:60ch;margin:0 0 40px}
+figure{margin:0 0 40px;background:var(--card);border:1px solid var(--line);border-radius:6px;padding:20px}
+h2{font-size:1.35rem;margin:0 0 4px;font-weight:600}
+figcaption{color:var(--mute);font-size:.95rem;max-width:68ch;margin-bottom:14px}
+.eq{font-style:italic;color:var(--ink)}
+canvas{display:block;max-width:100%;border:1px solid var(--line);border-radius:3px;background:#0b1224;touch-action:none}
+.row{display:flex;gap:16px;flex-wrap:wrap}
+.row canvas{flex:1 1 260px;min-width:0}
+.btns{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+button{font:inherit;font-size:.9rem;padding:5px 12px;border:1px solid var(--line);background:transparent;color:var(--ink);border-radius:4px;cursor:pointer}
+button[aria-pressed=true]{background:var(--a);border-color:var(--a);color:#fff}
+button:focus-visible{outline:2px solid var(--b);outline-offset:2px}
+.note{font-size:.85rem;color:var(--mute);margin-top:8px}
+</style>
+</head>
+<body>
+<main>
+<h1>Three curious pictures from mathematics</h1>
+<p class="lede">Chaos, complex functions and fractals, each drawn live in your browser. Every picture responds to your mouse or finger.</p>
+
+<figure>
+<h2>The Lorenz attractor</h2>
+<figcaption>Two paths start one part in a million apart and obey <span class="eq">ẋ = σ(y − x), ẏ = x(ρ − z) − y, and ż = xy − βz</span>. They trace the same butterfly shape, yet drift to different places. Drag to rotate.</figcaption>
+<canvas id="lorenz" width="860" height="460"></canvas>
+<div class="note">Blue and pink are the two trajectories. With σ = 10, ρ = 28 and β = 8/3 the system is chaotic.</div>
+</figure>
+
+<figure>
+<h2>Domain colouring of a complex function</h2>
+<figcaption>Each point z of the plane is coloured by the value f(z): hue gives the argument (direction), and the bands of light and dark mark powers of two in the modulus. Zeros and poles show up as points where all colours meet, and they swirl in opposite directions.</figcaption>
+<div class="btns" id="fbtns" role="group" aria-label="Choose a function"></div>
+<canvas id="dom" width="560" height="560" style="width:min(100%,560px)"></canvas>
+<div class="note">Real axis runs from −3 to 3, and so does the imaginary axis.</div>
+</figure>
+
+<figure>
+<h2>Mandelbrot set and its Julia sets</h2>
+<figcaption>Each point <span class="eq">c</span> in the left picture decides the shape on the right: the Julia set of <span class="eq">z ↦ z² + c</span>. Move across the Mandelbrot set. Inside it the Julia set is connected, outside it falls apart into dust.</figcaption>
+<div class="row">
+<canvas id="mb" width="520" height="400"></canvas>
+<canvas id="ju" width="400" height="400"></canvas>
+</div>
+<div class="note" id="cval">c = −0.7269 + 0.1889i</div>
+</figure>
+</main>
+
+<script>
+/* ---------- 1. Lorenz ---------- */
+(function(){
+  const cv=document.getElementById('lorenz'),g=cv.getContext('2d');
+  const W=cv.width,H=cv.height;
+  const s=10,r=28,b=8/3,dt=0.006,N=2600;
+  function f(p){return [s*(p[1]-p[0]),p[0]*(r-p[2])-p[1],p[0]*p[1]-b*p[2]];}
+  function step(p){
+    const k1=f(p),k2=f(p.map((v,i)=>v+dt/2*k1[i])),k3=f(p.map((v,i)=>v+dt/2*k2[i])),k4=f(p.map((v,i)=>v+dt*k3[i]));
+    return p.map((v,i)=>v+dt/6*(k1[i]+2*k2[i]+2*k3[i]+k4[i]));
+  }
+  const paths=[{p:[1,1,1],t:[],c:'111,155,255'},{p:[1+1e-6,1,1],t:[],c:'255,122,168'}];
+  let ay=0.6,ax=0.35,drag=false,lx=0,ly=0,auto=true;
+  cv.addEventListener('pointerdown',e=>{drag=true;auto=false;lx=e.clientX;ly=e.clientY;cv.setPointerCapture(e.pointerId)});
+  cv.addEventListener('pointerup',()=>drag=false);
+  cv.addEventListener('pointermove',e=>{if(!drag)return;ay+=(e.clientX-lx)*0.008;ax+=(e.clientY-ly)*0.008;lx=e.clientX;ly=e.clientY;});
+  function proj(p){
+    const x=p[0],y=p[1],z=p[2]-25;
+    const cy=Math.cos(ay),sy=Math.sin(ay),cx=Math.cos(ax),sx=Math.sin(ax);
+    const x1=x*cy+z*sy,z1=-x*sy+z*cy;
+    const y2=y*cx-z1*sx,z2=y*sx+z1*cx;
+    const k=11*(1+z2/160);
+    return [W/2+x1*k*1.0,H/2+y2*k*1.0];
+  }
+  function draw(){
+    for(let i=0;i<6;i++)for(const q of paths){q.p=step(q.p);q.t.push(q.p);if(q.t.length>N)q.t.shift();}
+    if(auto)ay+=0.004;
+    g.clearRect(0,0,W,H);
+    for(const q of paths){
+      const n=q.t.length;let prev=proj(q.t[0]);
+      for(let i=1;i<n;i++){
+        const cur=proj(q.t[i]);
+        g.strokeStyle='rgba('+q.c+','+(i/n*0.9).toFixed(3)+')';
+        g.lineWidth=1.3;g.beginPath();g.moveTo(prev[0],prev[1]);g.lineTo(cur[0],cur[1]);g.stroke();
+        prev=cur;
+      }
+      g.fillStyle='rgb('+q.c+')';g.beginPath();g.arc(prev[0],prev[1],3.5,0,6.283);g.fill();
+    }
+    requestAnimationFrame(draw);
+  }
+  if(!matchMedia('(prefers-reduced-motion: reduce)').matches)draw();
+  else{for(let i=0;i<3000;i++)for(const q of paths){q.p=step(q.p);q.t.push(q.p);}for(const q of paths)q.t=q.t.slice(-N);auto=false;draw=draw;requestAnimationFrame(draw);}
+})();
+
+/* ---------- 2. Domain colouring ---------- */
+(function(){
+  const cv=document.getElementById('dom'),g=cv.getContext('2d');
+  const W=cv.width,H=cv.height,R=3;
+  const mul=(a,b)=>[a[0]*b[0]-a[1]*b[1],a[0]*b[1]+a[1]*b[0]];
+  const div=(a,b)=>{const d=b[0]*b[0]+b[1]*b[1]||1e-12;return [(a[0]*b[0]+a[1]*b[1])/d,(a[1]*b[0]-a[0]*b[1])/d];};
+  const add=(a,b)=>[a[0]+b[0],a[1]+b[1]],sub=(a,b)=>[a[0]-b[0],a[1]-b[1]];
+  const fns=[
+    {n:'(z²−1)(z−2−i)² / (z²+2+2i)',f:z=>{const z2=mul(z,z);const w=sub(z,[2,1]);return div(mul(sub(z2,[1,0]),mul(w,w)),add(z2,[2,2]));}},
+    {n:'z³ − 1',f:z=>sub(mul(z,mul(z,z)),[1,0])},
+    {n:'sin z',f:z=>[Math.sin(z[0])*Math.cosh(z[1]),Math.cos(z[0])*Math.sinh(z[1])]},
+    {n:'z + 1/z',f:z=>add(z,div([1,0],z))},
+    {n:'z^z-ish: z² / (z⁴ − 1)',f:z=>{const z2=mul(z,z);return div(z2,sub(mul(z2,z2),[1,0]));}}
+  ];
+  function hsl(h,s,l){
+    const a=s*Math.min(l,1-l),k=n=>(n+h*12)%12;
+    const f=n=>l-a*Math.max(-1,Math.min(k(n)-3,9-k(n),1));
+    return [f(0)*255,f(8)*255,f(4)*255];
+  }
+  function render(F){
+    const img=g.createImageData(W,H),d=img.data;
+    for(let j=0;j<H;j++)for(let i=0;i<W;i++){
+      const z=[(i/W*2-1)*R,(1-j/H*2)*R],w=F(z);
+      const m=Math.hypot(w[0],w[1]);
+      let h=Math.atan2(w[1],w[0])/(2*Math.PI);if(h<0)h+=1;
+      const lg=Math.log2(m+1e-12),fr=lg-Math.floor(lg);
+      const l=0.28+0.5*fr*(1-0.55*Math.exp(-m*0.02))*Math.min(1,m*4+0.15);
+      const c=hsl(h,0.85,Math.min(0.88,l));
+      const o=(j*W+i)*4;d[o]=c[0];d[o+1]=c[1];d[o+2]=c[2];d[o+3]=255;
+    }
+    g.putImageData(img,0,0);
+    g.strokeStyle='rgba(255,255,255,.35)';g.lineWidth=1;g.beginPath();
+    g.moveTo(0,H/2);g.lineTo(W,H/2);g.moveTo(W/2,0);g.lineTo(W/2,H);g.stroke();
+  }
+  const box=document.getElementById('fbtns');
+  fns.forEach((o,i)=>{
+    const bt=document.createElement('button');bt.textContent='f(z) = '+o.n;bt.setAttribute('aria-pressed',i===0);
+    bt.onclick=()=>{[...box.children].forEach(x=>x.setAttribute('aria-pressed',x===bt));render(o.f);};
+    box.appendChild(bt);
+  });
+  fns[4].n='z² / (z⁴ − 1)';box.children[4].textContent='f(z) = '+fns[4].n;
+  render(fns[0].f);
+})();
+
+/* ---------- 3. Mandelbrot + Julia ---------- */
+(function(){
+  const mb=document.getElementById('mb'),mg=mb.getContext('2d');
+  const ju=document.getElementById('ju'),jg=ju.getContext('2d');
+  const MW=mb.width,MH=mb.height,JW=ju.width,JH=ju.height;
+  const X0=-2.4,X1=1.0,Y0=-1.3,Y1=1.3;
+  function color(n,max,zr,zi){
+    if(n>=max)return [8,12,28];
+    const sm=n+1-Math.log2(Math.log(zr*zr+zi*zi)/2);
+    const t=sm/28;
+    return [30+225*Math.pow(Math.sin(t*3.1+0.2)*.5+.5,1.2),70+150*(Math.sin(t*3.1+2.2)*.5+.5),150+105*(Math.sin(t*3.1+4.2)*.5+.5)];
+  }
+  const base=document.createElement('canvas');base.width=MW;base.height=MH;
+  (function(){
+    const bg=base.getContext('2d'),img=bg.createImageData(MW,MH);
+    for(let j=0;j<MH;j++)for(let i=0;i<MW;i++){
+      const cr=X0+i/MW*(X1-X0),ci=Y1-j/MH*(Y1-Y0);
+      let zr=0,zi=0,n=0;const max=120;
+      while(n<max&&zr*zr+zi*zi<256){const t=zr*zr-zi*zi+cr;zi=2*zr*zi+ci;zr=t;n++;}
+      const c=color(n,max,zr,zi),o=(j*MW+i)*4;
+      img.data[o]=c[0];img.data[o+1]=c[1];img.data[o+2]=c[2];img.data[o+3]=255;
+    }
+    bg.putImageData(img,0,0);
+  })();
+  function julia(cr,ci){
+    const img=jg.createImageData(JW,JH),max=90;
+    for(let j=0;j<JH;j++)for(let i=0;i<JW;i++){
+      let zr=(i/JW*2-1)*1.7,zi=(1-j/JH*2)*1.7,n=0;
+      while(n<max&&zr*zr+zi*zi<256){const t=zr*zr-zi*zi+cr;zi=2*zr*zi+ci;zr=t;n++;}
+      const c=color(n,max,zr,zi),o=(j*JW+i)*4;
+      img.data[o]=c[0];img.data[o+1]=c[1];img.data[o+2]=c[2];img.data[o+3]=255;
+    }
+    jg.putImageData(img,0,0);
+  }
+  function setC(cr,ci){
+    mg.drawImage(base,0,0);
+    const px=(cr-X0)/(X1-X0)*MW,py=(Y1-ci)/(Y1-Y0)*MH;
+    mg.strokeStyle='#fff';mg.lineWidth=2;mg.beginPath();mg.arc(px,py,7,0,6.283);mg.stroke();
+    mg.strokeStyle='#d6336c';mg.lineWidth=1.5;mg.beginPath();mg.arc(px,py,9,0,6.283);mg.stroke();
+    julia(cr,ci);
+    document.getElementById('cval').textContent='c = '+cr.toFixed(4).replace('-','−')+(ci<0?' − ':' + ')+Math.abs(ci).toFixed(4)+'i';
+  }
+  function fromEvent(e){
+    const r=mb.getBoundingClientRect();
+    const x=(e.clientX-r.left)/r.width,y=(e.clientY-r.top)/r.height;
+    setC(X0+Math.max(0,Math.min(1,x))*(X1-X0),Y1-Math.max(0,Math.min(1,y))*(Y1-Y0));
+  }
+  let down=false,pending=false;
+  mb.addEventListener('pointerdown',e=>{down=true;mb.setPointerCapture(e.pointerId);fromEvent(e)});
+  mb.addEventListener('pointerup',()=>down=false);
+  mb.addEventListener('pointermove',e=>{if(!(down||e.pointerType==='mouse'))return;if(pending)return;pending=true;requestAnimationFrame(()=>{pending=false;fromEvent(e)});});
+  setC(-0.7269,0.1889);
+})();
+</script>
+</body>
+</html>
